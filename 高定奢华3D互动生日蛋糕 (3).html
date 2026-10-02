@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>祝你生日快乐 - 高定奢华3D生日蛋糕</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts & Font Awesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Ma+Shan+Zheng&family=Noto+Serif+SC:wght@300;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            user-select: none;
+            font-family: 'Noto Serif SC', serif;
+            background: #080509;
+            color: #fff;
+        }
+        .font-serif-title {
+            font-family: 'Cinzel', 'Noto Serif SC', serif;
+        }
+        .font-cursive {
+            font-family: 'Ma Shan Zheng', cursive;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        /* Glassmorphism Styling */
+        .glass-panel {
+            background: rgba(18, 13, 24, 0.65);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(245, 208, 110, 0.25);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+        }
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(245, 208, 110, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-btn:hover {
+            background: rgba(245, 208, 110, 0.25);
+            border-color: rgba(245, 208, 110, 0.8);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(234, 179, 8, 0.35);
+        }
+        .glass-btn:active {
+            transform: translateY(0);
+        }
+        .gold-text-glow {
+            text-shadow: 0 0 12px rgba(245, 208, 110, 0.6), 0 0 25px rgba(217, 119, 6, 0.4);
+        }
+        @keyframes pulseRing {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 14px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .mic-active {
+            animation: pulseRing 1.5s infinite;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.92) translateY(15px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .animate-modal {
+            animation: modalFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="antialiased select-none">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="absolute inset-0 z-0 cursor-grab active:cursor-grabbing"></div>
+
+    <!-- Header Overlay -->
+    <header class="absolute top-0 left-0 w-full p-4 md:p-6 z-10 flex justify-between items-center pointer-events-none">
+        <div class="pointer-events-auto flex items-center space-x-3.5">
+            <div class="w-11 h-11 rounded-full bg-amber-500/20 flex items-center justify-center border border-amber-400/40 shadow-lg">
+                <i class="fa-solid fa-crown text-amber-300 text-xl"></i>
+            </div>
+            <div>
+                <h1 id="app-title" class="text-xl md:text-2xl font-bold tracking-widest text-amber-200 gold-text-glow font-serif-title">
+                    Happy Birthday
+                </h1>
+                <p class="text-xs text-amber-100/70 tracking-wider">拖拽旋转视角 · 吹灭蜡烛 · 许下心愿</p>
+            </div>
+        </div>
+
+        <div class="pointer-events-auto flex items-center space-x-2.5">
+            <button id="btn-theme" class="glass-btn p-3 rounded-full text-amber-200 text-sm flex items-center justify-center" title="切换法式高定主题">
+                <i class="fa-solid fa-palette text-lg"></i>
+            </button>
+            <button id="btn-music" class="glass-btn p-3 rounded-full text-amber-200 text-sm flex items-center justify-center" title="播放/暂停音乐">
+                <i id="music-icon" class="fa-solid fa-music text-lg"></i>
+            </button>
+            <button id="btn-card" class="glass-btn p-3 rounded-full text-amber-200 text-sm flex items-center justify-center" title="定制贺卡">
+                <i class="fa-solid fa-envelope-open-text text-lg"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Interactive Action Bar -->
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex flex-wrap justify-center gap-2.5 px-4 w-full max-w-2xl pointer-events-auto">
+        <button id="btn-mic" class="glass-btn px-4 py-2.5 rounded-full text-xs md:text-sm font-medium flex items-center space-x-2 text-rose-200">
+            <i class="fa-solid fa-microphone text-rose-400"></i>
+            <span id="mic-text">开启吹气检测</span>
+        </button>
+
+        <button id="btn-light" class="glass-btn px-4 py-2.5 rounded-full text-xs md:text-sm font-medium flex items-center space-x-2 text-amber-200">
+            <i class="fa-solid fa-fire text-amber-400"></i>
+            <span>点燃蜡烛</span>
+        </button>
+
+        <button id="btn-wish" class="glass-btn px-5 py-2.5 rounded-full text-xs md:text-sm font-semibold bg-amber-500/20 text-amber-100 flex items-center space-x-2 border-amber-400/50 shadow-xl">
+            <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+            <span>虔诚许愿</span>
+        </button>
+
+        <button id="btn-cut" class="glass-btn px-4 py-2.5 rounded-full text-xs md:text-sm font-medium flex items-center space-x-2 text-amber-200">
+            <i class="fa-solid fa-utensils text-amber-300"></i>
+            <span id="cut-text">切蛋糕</span>
+        </button>
+
+        <button id="btn-celebrate" class="glass-btn px-4 py-2.5 rounded-full text-xs md:text-sm font-medium flex items-center space-x-2 text-purple-200">
+            <i class="fa-solid fa-gift text-purple-300"></i>
+            <span>放飞礼花</span>
+        </button>
+    </div>
+
+    <!-- Theme Modal -->
+    <div id="modal-theme" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md hidden">
+        <div class="glass-panel p-6 rounded-3xl max-w-sm w-full mx-4 text-center animate-modal">
+            <h3 class="text-lg font-bold mb-4 text-amber-200 tracking-wider font-serif-title">高定主题风格</h3>
+            <div class="grid grid-cols-1 gap-3">
+                <button data-theme="gold" class="theme-option p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 to-yellow-600/20 border border-amber-400/40 hover:scale-105 transition flex items-center justify-between">
+                    <span class="font-medium text-amber-100 text-sm">香槟法式金白 (French Gold)</span>
+                    <i class="fa-solid fa-crown text-amber-300"></i>
+                </button>
+                <button data-theme="rose" class="theme-option p-3.5 rounded-2xl bg-gradient-to-r from-rose-500/20 to-pink-600/20 border border-pink-400/40 hover:scale-105 transition flex items-center justify-between">
+                    <span class="font-medium text-pink-100 text-sm">绝美玫瑰粉晶 (Rose Quartz)</span>
+                    <i class="fa-solid fa-heart text-pink-300"></i>
+                </button>
+                <button data-theme="royal" class="theme-option p-3.5 rounded-2xl bg-gradient-to-r from-purple-500/20 to-indigo-600/20 border border-purple-400/40 hover:scale-105 transition flex items-center justify-between">
+                    <span class="font-medium text-purple-100 text-sm">皇家星耀夜蓝 (Midnight Royal)</span>
+                    <i class="fa-solid fa-star text-purple-300"></i>
+                </button>
+            </div>
+            <button id="close-theme" class="mt-5 text-xs text-gray-400 hover:text-white underline tracking-wider">关闭</button>
+        </div>
+    </div>
+
+    <!-- Wish Modal -->
+    <div id="modal-wish" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden">
+        <div class="glass-panel p-6 md:p-8 rounded-3xl max-w-md w-full mx-4 text-center animate-modal relative border-amber-400/40 shadow-2xl">
+            <button id="close-wish" class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="w-16 h-16 rounded-full bg-amber-400/20 mx-auto flex items-center justify-center mb-4 border border-amber-300/40">
+                <i class="fa-solid fa-moon text-3xl text-amber-300"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-amber-200 mb-2 font-cursive glow-text">闭上双眼 许下心愿</h3>
+            <p class="text-xs text-amber-100/70 mb-4 tracking-wider">在心中默默许愿，点击发送吹灭蜡烛，愿所有美好如期而至...</p>
+            <textarea id="wish-input" rows="3" class="w-full bg-black/50 border border-amber-300/30 rounded-xl p-3 text-white placeholder-gray-500 focus:outline-none focus:border-amber-400 text-sm mb-4 resize-none" placeholder="输入你的生日心愿..."></textarea>
+            <button id="send-wish-btn" class="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-700 rounded-xl font-bold text-white shadow-xl hover:brightness-110 active:scale-95 transition tracking-wider">
+                <i class="fa-solid fa-paper-plane mr-2"></i>诚心许愿并吹灭蜡烛
+            </button>
+        </div>
+    </div>
+
+    <!-- Greeting Card Modal -->
+    <div id="modal-card" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md hidden">
+        <div class="glass-panel p-6 md:p-8 rounded-3xl max-w-md w-full mx-4 text-center animate-modal relative border-amber-300/40 shadow-2xl">
+            <button id="close-card" class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div id="card-display" class="space-y-4">
+                <div class="text-amber-300/80 text-xs tracking-widest uppercase font-serif-title">Exquisite Birthday Card</div>
+                <h2 id="card-recipient-text" class="text-3xl font-bold text-amber-200 font-cursive gold-text-glow">亲爱的 寿星</h2>
+                <div class="w-16 h-0.5 bg-gradient-to-r from-transparent via-amber-400 to-transparent mx-auto my-2"></div>
+                <p id="card-message-text" class="text-gray-200 text-sm leading-relaxed italic px-2">
+                    "愿你的岁岁年年，皆如暖阳般灿烂，充满欢笑与好运。愿所有的美好与期盼，都如约而至！生日快乐！"
+                </p>
+                <div class="pt-2 text-right text-xs text-amber-300/80 font-medium">— 来自挚友的真挚祝福 —</div>
+                <button id="btn-edit-card" class="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-xs text-amber-200 border border-amber-300/30 transition">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i>编辑定制贺卡
+                </button>
+            </div>
+
+            <div id="card-edit-form" class="hidden space-y-3 text-left">
+                <h3 class="text-lg font-bold text-amber-200 text-center mb-2 font-serif-title">定制生日贺卡寄语</h3>
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">寿星尊称 / 姓名:</label>
+                    <input id="edit-recipient" type="text" class="w-full bg-black/50 border border-amber-300/30 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-amber-400" value="亲爱的 寿星">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">祝福寄语:</label>
+                    <textarea id="edit-message" rows="3" class="w-full bg-black/50 border border-amber-300/30 rounded-lg p-2 text-sm text-white focus:outline-none focus:border-amber-400 resize-none">愿你的岁岁年年，皆如暖阳般灿烂，充满欢笑与好运。愿所有的美好与期盼，都如约而至！生日快乐！</textarea>
+                </div>
+                <div class="flex space-x-2 pt-2">
+                    <button id="btn-save-card" class="flex-1 py-2 bg-amber-500 rounded-lg font-bold text-sm text-white hover:bg-amber-600 transition text-center">保存贺卡</button>
+                    <button id="btn-cancel-card" class="px-4 py-2 bg-gray-700/60 rounded-lg text-sm text-gray-300 hover:bg-gray-700 transition">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class BirthdayAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+                this.timer = null;
+                this.melody = [
+                    { note: 'G4', duration: 0.75 }, { note: 'G4', duration: 0.25 },
+                    { note: 'A4', duration: 1.0 }, { note: 'G4', duration: 1.0 },
+                    { note: 'C5', duration: 1.0 }, { note: 'B4', duration: 2.0 },
+                    
+                    { note: 'G4', duration: 0.75 }, { note: 'G4', duration: 0.25 },
+                    { note: 'A4', duration: 1.0 }, { note: 'G4', duration: 1.0 },
+                    { note: 'D5', duration: 1.0 }, { note: 'C5', duration: 2.0 },
+                    
+                    { note: 'G4', duration: 0.75 }, { note: 'G4', duration: 0.25 },
+                    { note: 'G5', duration: 1.0 }, { note: 'E5', duration: 1.0 },
+                    { note: 'C5', duration: 1.0 }, { note: 'B4', duration: 1.0 },
+                    { note: 'A4', duration: 1.5 },
+                    
+                    { note: 'F5', duration: 0.75 }, { note: 'F5', duration: 0.25 },
+                    { note: 'E5', duration: 1.0 }, { note: 'C5', duration: 1.0 },
+                    { note: 'D5', duration: 1.0 }, { note: 'C5', duration: 2.5 }
+                ];
+                this.noteFreqs = {
+                    'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+                    'C5': 523.25, 'D5': 587.33, 'E5': 659.25,
+                    'F5': 698.46, 'G5': 783.99
+                };
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playChime(freq, duration) {
+                if (!this.ctx) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.01, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.3, this.ctx.currentTime + 0.04);
+                gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration * 0.95);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            toggle() {
+                this.init();
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                if (this.isPlaying) {
+                    this.stop();
+                    return false;
+                } else {
+                    this.start();
+                    return true;
+                }
+            }
+
+            start() {
+                this.isPlaying = true;
+                let index = 0;
+                const playNextNote = () => {
+                    if (!this.isPlaying) return;
+                    const item = this.melody[index];
+                    const freq = this.noteFreqs[item.note];
+                    const durationSec = item.duration * 0.48;
+
+                    if (freq) {
+                        this.playChime(freq, durationSec);
+                    }
+
+                    index = (index + 1) % this.melody.length;
+                    this.timer = setTimeout(playNextNote, durationSec * 1000);
+                };
+                playNextNote();
+            }
+
+            stop() {
+                this.isPlaying = false;
+                if (this.timer) clearTimeout(this.timer);
+            }
+        }
+
+        const audioEngine = new BirthdayAudioEngine();
+    </script>
+
+    <script>
+        let scene, camera, renderer;
+        let cakeGroup, mainCakeBody, sliceGroup, ambientParticlesGroup;
+        let flamesList = []; // List of all active flames
+        let smokeParticlesGroup;
+        let candleLight;
+        let isCandlesLit = true;
+        let isCakeCut = false;
+        let currentTheme = 'gold';
+
+        // High-end Theme Palettes
+        const themes = {
+            gold: {
+                glaze: 0xfffdfa,      // French Cream Mirror Glaze
+                icing: 0xf5e6ca,      // Champagne Cream
+                decor: 0xe5c158,      // Gold Flakes
+                plate: 0x1c1917,      // Ebony Slate Plate
+                candle: 0xd4af37,     // Gold Spiral Candle
+            },
+            rose: {
+                glaze: 0xffe4e1,      // Misty Rose Glaze
+                icing: 0xffb6c1,      // Light Pink Cream
+                decor: 0xff69b4,      // Hot Pink
+                plate: 0xf8f9fa,      // White Marble Plate
+                candle: 0xff1493,     // Rose Gold Candle
+            },
+            royal: {
+                glaze: 0x1e1b4b,      // Midnight Blue Glaze
+                icing: 0x312e81,      // Deep Indigo
+                decor: 0xf59e0b,      // Amber Gold Accent
+                plate: 0x0f172a,      // Midnight Obsidian Plate
+                candle: 0xa855f7,     // Velvet Purple Candle
+            }
+        };
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 16, 28);
+            camera.lookAt(0, 4.5, 0);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.15;
+            container.appendChild(renderer.domElement);
+
+            // Lighting setup
+            const ambientLight = new THREE.AmbientLight(0xfff5ea, 0.85);
+            scene.add(ambientLight);
+
+            const keyLight = new THREE.DirectionalLight(0xffeedd, 1.4);
+            keyLight.position.set(15, 28, 18);
+            keyLight.castShadow = true;
+            keyLight.shadow.mapSize.width = 2048;
+            keyLight.shadow.mapSize.height = 2048;
+            keyLight.shadow.bias = -0.0001;
+            scene.add(keyLight);
+
+            const rimLight = new THREE.DirectionalLight(0xecfeff, 0.8);
+            rimLight.position.set(-15, 12, -15);
+            scene.add(rimLight);
+
+            // Candle Group Light
+            candleLight = new THREE.PointLight(0xffaa33, 2.0, 35);
+            candleLight.position.set(0, 8.8, 0); // Anchored to top tier height
+            scene.add(candleLight);
+
+            // Initialize Scene Groups
+            cakeGroup = new THREE.Group();
+            smokeParticlesGroup = new THREE.Group();
+            ambientParticlesGroup = new THREE.Group();
+
+            scene.add(cakeGroup);
+            scene.add(smokeParticlesGroup);
+            scene.add(ambientParticlesGroup);
+
+            // Build Cake & Particles
+            buildLuxuryCake();
+            createAmbientParticles();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function buildLuxuryCake() {
+            // Clear existing elements
+            while (cakeGroup.children.length > 0) cakeGroup.remove(cakeGroup.children[0]);
+            flamesList = [];
+
+            const theme = themes[currentTheme];
+
+            // Master Group for All Cake Mesh & Toppings
+            mainCakeBody = new THREE.Group();
+            cakeGroup.add(mainCakeBody);
+
+            // 1. Ceramic Plate with Metallic Rim
+            const plateGeo = new THREE.CylinderGeometry(11.5, 10.5, 0.6, 64);
+            const plateMat = new THREE.MeshStandardMaterial({
+                color: theme.plate,
+                roughness: 0.1,
+                metalness: 0.3
+            });
+            const plate = new THREE.Mesh(plateGeo, plateMat);
+            plate.position.y = 0.3;
+            plate.receiveShadow = true;
+            mainCakeBody.add(plate);
+
+            const rimGeo = new THREE.TorusGeometry(11.45, 0.12, 16, 64);
+            const goldMat = new THREE.MeshStandardMaterial({ color: 0xe5c158, roughness: 0.2, metalness: 0.9 });
+            const rim = new THREE.Mesh(rimGeo, goldMat);
+            rim.rotation.x = Math.PI / 2;
+            rim.position.y = 0.6;
+            mainCakeBody.add(rim);
+
+            // Shared Materials
+            const glazeMat = new THREE.MeshStandardMaterial({ color: theme.glaze, roughness: 0.15, metalness: 0.08 });
+            const icingMat = new THREE.MeshStandardMaterial({ color: theme.icing, roughness: 0.25, metalness: 0.15 });
+
+            // 2. Bottom Cake Tier (Height: 3.8, Y-Center: 2.5, Top Surface Y = 4.4)
+            const tier1Geo = new THREE.CylinderGeometry(8.2, 8.2, 3.8, 64);
+            const tier1 = new THREE.Mesh(tier1Geo, glazeMat);
+            tier1.position.y = 2.5;
+            tier1.castShadow = true;
+            tier1.receiveShadow = true;
+            mainCakeBody.add(tier1);
+
+            // Tier 1 Cream Piping
+            const borderPipes = 28;
+            for (let i = 0; i < borderPipes; i++) {
+                const angle = (i / borderPipes) * Math.PI * 2;
+                const r = 8.1;
+                const pipe = new THREE.Mesh(new THREE.SphereGeometry(0.48, 16, 16), icingMat);
+                pipe.position.set(Math.cos(angle) * r, 4.4, Math.sin(angle) * r);
+                pipe.scale.set(1, 0.65, 1);
+                mainCakeBody.add(pipe);
+            }
+
+            // 3. Top Cake Tier (Height: 3.2, Y-Center: 6.0, Top Surface Y = 7.6)
+            const tier2Geo = new THREE.CylinderGeometry(5.6, 5.6, 3.2, 64);
+            const tier2 = new THREE.Mesh(tier2Geo, glazeMat);
+            tier2.position.y = 6.0;
+            tier2.castShadow = true;
+            tier2.receiveShadow = true;
+            mainCakeBody.add(tier2);
+
+            // Gold Leaf Flakes on Tier 2 Body
+            for (let i = 0; i < 22; i++) {
+                const flake = new THREE.Mesh(new THREE.DodecahedronGeometry(0.12 + Math.random() * 0.15), goldMat);
+                const angle = Math.random() * Math.PI * 2;
+                const h = 4.6 + Math.random() * 2.8;
+                flake.position.set(Math.cos(angle) * 5.65, h, Math.sin(angle) * 5.65);
+                flake.rotation.set(Math.random(), Math.random(), Math.random());
+                mainCakeBody.add(flake);
+            }
+
+            // 4. Gourmet Toppings on Top Surface (Y = 7.6)
+            const toppingCount = 10;
+            for (let i = 0; i < toppingCount; i++) {
+                const angle = (i / toppingCount) * Math.PI * 2;
+                const r = 4.8;
+                const x = Math.cos(angle) * r;
+                const z = Math.sin(angle) * r;
+
+                if (i % 2 === 0) {
+                    // Strawberry with Stem
+                    const strawGroup = new THREE.Group();
+                    const strawMat = new THREE.MeshStandardMaterial({ color: 0xd90429, roughness: 0.2, metalness: 0.1 });
+                    const strawBody = new THREE.Mesh(new THREE.ConeGeometry(0.5, 0.9, 16), strawMat);
+                    strawBody.rotation.x = Math.PI;
+
+                    const stemMat = new THREE.MeshStandardMaterial({ color: 0x2d6a4f, roughness: 0.5 });
+                    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.25, 8), stemMat);
+                    stem.position.y = 0.5;
+
+                    strawGroup.add(strawBody, stem);
+                    strawGroup.position.set(x, 7.95, z);
+                    strawGroup.rotation.z = (Math.random() - 0.5) * 0.4;
+                    strawGroup.castShadow = true;
+                    mainCakeBody.add(strawGroup);
+                } else {
+                    // Blueberry
+                    const berryMat = new THREE.MeshStandardMaterial({ color: 0x2b2d42, roughness: 0.2 });
+                    const berry = new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), berryMat);
+                    berry.position.set(x, 7.8, z);
+                    berry.castShadow = true;
+                    mainCakeBody.add(berry);
+                }
+            }
+
+            // 5. ANCHORED CANDLES (Rooted Directly into Top Tier Surface at Y = 7.6)
+            const candlePositions = [
+                { x: 0, z: 0 },
+                { x: 2.1, z: 2.1 },
+                { x: -2.1, z: 2.1 },
+                { x: 2.1, z: -2.1 },
+                { x: -2.1, z: -2.1 }
+            ];
+
+            const candleMat = new THREE.MeshStandardMaterial({ color: theme.candle, roughness: 0.2, metalness: 0.85 });
+
+            candlePositions.forEach((pos) => {
+                // Candle Single Group (Guarantees local coordinates never drift)
+                const singleCandleGroup = new THREE.Group();
+                // Position root at Y = 7.6 (Cake top surface)
+                singleCandleGroup.position.set(pos.x, 7.6, pos.z);
+
+                // Cream Base Swirl for Candle
+                const baseCream = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), icingMat);
+                baseCream.scale.set(1, 0.5, 1);
+                baseCream.position.y = 0.1;
+                singleCandleGroup.add(baseCream);
+
+                // Candle Body (Height: 2.2, Center: Y = 1.2)
+                const candleBody = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 2.2, 32), candleMat);
+                candleBody.position.y = 1.2;
+                candleBody.castShadow = true;
+                singleCandleGroup.add(candleBody);
+
+                // Wick (Height: 0.35, Top End at Y = 2.475)
+                const wickMat = new THREE.MeshBasicMaterial({ color: 0x111111 });
+                const wick = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.35, 8), wickMat);
+                wick.position.y = 2.475;
+                singleCandleGroup.add(wick);
+
+                // Dual Flame Mesh (Positioned exactly at tip of wick Y = 2.7)
+                const flamePair = new THREE.Group();
+                flamePair.position.y = 2.7;
+
+                const flameCore = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.2, 16, 16),
+                    new THREE.MeshBasicMaterial({ color: 0xffffff })
+                );
+                flameCore.scale.set(0.6, 1.4, 0.6);
+
+                const flameHalo = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.38, 16, 16),
+                    new THREE.MeshBasicMaterial({ color: 0xff7700, transparent: true, opacity: 0.75 })
+                );
+                flameHalo.scale.set(0.7, 1.6, 0.7);
+
+                flamePair.add(flameCore, flameHalo);
+                singleCandleGroup.add(flamePair);
+
+                flamesList.push(flamePair); // Keep track for animation & extinguishing
+
+                // Append Candle to Main Cake Body
+                mainCakeBody.add(singleCandleGroup);
+            });
+
+            candleLight.position.set(0, 10.3, 0);
+            isCandlesLit = true;
+            flamesList.forEach(f => f.visible = true);
+        }
+
+        function createAmbientParticles() {
+            const particleCount = 140;
+            const geo = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 50;
+                positions[i + 1] = Math.random() * 30;
+                positions[i + 2] = (Math.random() - 0.5) * 50;
+            }
+
+            geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const mat = new THREE.PointsMaterial({
+                color: 0xf5e6ca,
+                size: 0.25,
+                transparent: true,
+                opacity: 0.55
+            });
+
+            const particles = new THREE.Points(geo, mat);
+            ambientParticlesGroup.add(particles);
+        }
+
+        function createCutSlice() {
+            if (isCakeCut) return;
+            isCakeCut = true;
+
+            const sliceAngle = Math.PI / 4.5;
+            sliceGroup = new THREE.Group();
+
+            const theme = themes[currentTheme];
+            const glazeMat = new THREE.MeshStandardMaterial({ color: theme.glaze, roughness: 0.15 });
+
+            // Cake Wedge Geometry
+            const wedgeGeo = new THREE.CylinderGeometry(5.5, 5.5, 3.2, 32, 1, false, 0, sliceAngle);
+            const wedge = new THREE.Mesh(wedgeGeo, glazeMat);
+            wedge.position.set(0, 6.0, 0);
+            sliceGroup.add(wedge);
+
+            scene.add(sliceGroup);
+
+            let dist = 0;
+            const animateOut = () => {
+                if (dist < 2.8) {
+                    dist += 0.08;
+                    sliceGroup.position.x = Math.cos(sliceAngle / 2) * dist;
+                    sliceGroup.position.z = Math.sin(sliceAngle / 2) * dist;
+                    requestAnimationFrame(animateOut);
+                }
+            };
+            animateOut();
+
+            document.getElementById('cut-text').innerText = "重置蛋糕";
+        }
+
+        function resetCakeCut() {
+            if (sliceGroup) {
+                scene.remove(sliceGroup);
+                sliceGroup = null;
+            }
+            isCakeCut = false;
+            document.getElementById('cut-text').innerText = "切蛋糕";
+        }
+
+        function triggerSmokeFX() {
+            flamesList.forEach(flame => {
+                const worldPos = new THREE.Vector3();
+                flame.getWorldPosition(worldPos);
+
+                for (let i = 0; i < 8; i++) {
+                    const smokeGeo = new THREE.SphereGeometry(0.15 + Math.random() * 0.12, 8, 8);
+                    const smokeMat = new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.65 });
+                    const particle = new THREE.Mesh(smokeGeo, smokeMat);
+                    particle.position.copy(worldPos);
+                    smokeParticlesGroup.add(particle);
+
+                    let velY = 0.04 + Math.random() * 0.03;
+                    const animateSmoke = () => {
+                        particle.position.y += velY;
+                        particle.scale.multiplyScalar(1.02);
+                        smokeMat.opacity -= 0.015;
+
+                        if (smokeMat.opacity > 0) {
+                            requestAnimationFrame(animateSmoke);
+                        } else {
+                            smokeParticlesGroup.remove(particle);
+                        }
+                    };
+                    animateSmoke();
+                }
+            });
+        }
+
+        function extinguishCandles() {
+            if (!isCandlesLit) return;
+            isCandlesLit = false;
+            triggerSmokeFX();
+            flamesList.forEach(f => f.visible = false);
+            candleLight.intensity = 0.2;
+            fireConfetti();
+        }
+
+        function lightCandles() {
+            isCandlesLit = true;
+            flamesList.forEach(f => f.visible = true);
+            candleLight.intensity = 2.0;
+        }
+
+        function fireConfetti() {
+            confetti({
+                particleCount: 120,
+                spread: 85,
+                origin: { y: 0.6 }
+            });
+        }
+    </script>
+
+    <script>
+        let isMouseDown = false;
+        let previousMousePosition = { x: 0, y: 0 };
+        let targetRotationY = 0;
+        let targetRotationX = 0;
+
+        const container = document.getElementById('canvas-container');
+
+        container.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            const deltaX = e.clientX - previousMousePosition.x;
+            const deltaY = e.clientY - previousMousePosition.y;
+
+            targetRotationY += deltaX * 0.007;
+            targetRotationX += deltaY * 0.005;
+            targetRotationX = Math.max(-0.2, Math.min(0.8, targetRotationX));
+
+            previousMousePosition = { x: e.clientX, y: e.clientY };
+        });
+
+        window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+        // Touch Interaction
+        container.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isMouseDown = true;
+                previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+        });
+
+        container.addEventListener('touchmove', (e) => {
+            if (!isMouseDown || e.touches.length !== 1) return;
+            const deltaX = e.touches[0].clientX - previousMousePosition.x;
+            const deltaY = e.touches[0].clientY - previousMousePosition.y;
+
+            targetRotationY += deltaX * 0.007;
+            targetRotationX += deltaY * 0.005;
+            targetRotationX = Math.max(-0.2, Math.min(0.8, targetRotationX));
+
+            previousMousePosition = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        });
+
+        container.addEventListener('touchend', () => { isMouseDown = false; });
+
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const elapsedTime = clock.getElapsedTime();
+
+            if (!isMouseDown) {
+                targetRotationY += 0.0025; // Gentle Orbit
+            }
+
+            cakeGroup.rotation.y = targetRotationY;
+            if (sliceGroup) sliceGroup.rotation.y = targetRotationY;
+
+            // Animate Flame Flickering Attached to Tip
+            if (isCandlesLit) {
+                flamesList.forEach((flame, idx) => {
+                    const flicker = Math.sin(elapsedTime * 14 + idx) * 0.08 + 1;
+                    flame.scale.set(0.7 * flicker, 1.4 * flicker, 0.7 * flicker);
+                });
+            }
+
+            // Animate Floating Ambient Dust Particles
+            if (ambientParticlesGroup.children[0]) {
+                ambientParticlesGroup.children[0].rotation.y = elapsedTime * 0.02;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+
+    <script>
+        let micStream = null;
+        let audioCtx = null;
+        let analyser = null;
+        let isMicListening = false;
+
+        async function setupMicrophone() {
+            const micBtn = document.getElementById('btn-mic');
+            const micText = document.getElementById('mic-text');
+
+            if (isMicListening) {
+                if (micStream) micStream.getTracks().forEach(track => track.stop());
+                isMicListening = false;
+                micBtn.classList.remove('mic-active', 'bg-red-500/40');
+                micText.innerText = "开启吹气检测";
+                return;
+            }
+
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioCtx.createAnalyser();
+                const source = audioCtx.createMediaStreamSource(micStream);
+
+                analyser.fftSize = 256;
+                source.connect(analyser);
+
+                isMicListening = true;
+                micBtn.classList.add('mic-active', 'bg-red-500/40');
+                micText.innerText = "正在监听吹气...";
+
+                detectBlow();
+            } catch (err) {
+                alert("无法访问麦克风，请允许麦克风权限或点击【虔诚许愿】吹灭蜡烛！");
+            }
+        }
+
+        function detectBlow() {
+            if (!isMicListening) return;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            for (let i = 0; i < 15; i++) sum += dataArray[i];
+            let average = sum / 15;
+
+            if (average > 65 && isCandlesLit) {
+                extinguishCandles();
+            }
+
+            requestAnimationFrame(detectBlow);
+        }
+
+        window.onload = function () {
+            init3D();
+            animate();
+
+            // Music Button Listener
+            const musicBtn = document.getElementById('btn-music');
+            const musicIcon = document.getElementById('music-icon');
+            musicBtn.addEventListener('click', () => {
+                const playing = audioEngine.toggle();
+                if (playing) {
+                    musicIcon.classList.remove('fa-music');
+                    musicIcon.classList.add('fa-pause');
+                    musicBtn.classList.add('bg-amber-500/40');
+                } else {
+                    musicIcon.classList.remove('fa-pause');
+                    musicIcon.classList.add('fa-music');
+                    musicBtn.classList.remove('bg-amber-500/40');
+                }
+            });
+
+            // Theme Switcher Listener
+            const themeBtn = document.getElementById('btn-theme');
+            const themeModal = document.getElementById('modal-theme');
+            const closeThemeBtn = document.getElementById('close-theme');
+
+            themeBtn.addEventListener('click', () => themeModal.classList.remove('hidden'));
+            closeThemeBtn.addEventListener('click', () => themeModal.classList.add('hidden'));
+
+            document.querySelectorAll('.theme-option').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const themeKey = e.currentTarget.getAttribute('data-theme');
+                    if (themes[themeKey]) {
+                        currentTheme = themeKey;
+                        buildLuxuryCake();
+                        themeModal.classList.add('hidden');
+                    }
+                });
+            });
+
+            // Relight Candles
+            document.getElementById('btn-light').addEventListener('click', () => lightCandles());
+
+            // Cut Cake
+            document.getElementById('btn-cut').addEventListener('click', () => {
+                if (!isCakeCut) createCutSlice();
+                else resetCakeCut();
+            });
+
+            // Celebrate Confetti
+            document.getElementById('btn-celebrate').addEventListener('click', () => fireConfetti());
+
+            // Microphone Detection
+            document.getElementById('btn-mic').addEventListener('click', () => setupMicrophone());
+
+            // Wish Modal Listener
+            const wishBtn = document.getElementById('btn-wish');
+            const wishModal = document.getElementById('modal-wish');
+            const closeWishBtn = document.getElementById('close-wish');
+            const sendWishBtn = document.getElementById('send-wish-btn');
+
+            wishBtn.addEventListener('click', () => wishModal.classList.remove('hidden'));
+            closeWishBtn.addEventListener('click', () => wishModal.classList.add('hidden'));
+
+            sendWishBtn.addEventListener('click', () => {
+                const wishText = document.getElementById('wish-input').value;
+                if (wishText.trim() !== "") {
+                    wishModal.classList.add('hidden');
+                    extinguishCandles();
+                    document.getElementById('wish-input').value = "";
+                } else {
+                    alert("请先写下您的生日心愿哦！");
+                }
+            });
+
+            // Card Modal Handlers
+            const cardBtn = document.getElementById('btn-card');
+            const cardModal = document.getElementById('modal-card');
+            const closeCardBtn = document.getElementById('close-card');
+            const editCardBtn = document.getElementById('btn-edit-card');
+            const saveCardBtn = document.getElementById('btn-save-card');
+            const cancelCardBtn = document.getElementById('btn-cancel-card');
+
+            const cardDisplay = document.getElementById('card-display');
+            const cardEditForm = document.getElementById('card-edit-form');
+
+            cardBtn.addEventListener('click', () => cardModal.classList.remove('hidden'));
+            closeCardBtn.addEventListener('click', () => cardModal.classList.add('hidden'));
+
+            editCardBtn.addEventListener('click', () => {
+                cardDisplay.classList.add('hidden');
+                cardEditForm.classList.remove('hidden');
+            });
+
+            cancelCardBtn.addEventListener('click', () => {
+                cardEditForm.classList.add('hidden');
+                cardDisplay.classList.remove('hidden');
+            });
+
+            saveCardBtn.addEventListener('click', () => {
+                const recipient = document.getElementById('edit-recipient').value;
+                const message = document.getElementById('edit-message').value;
+
+                if (recipient.trim() && message.trim()) {
+                    document.getElementById('card-recipient-text').innerText = recipient;
+                    document.getElementById('card-message-text').innerText = `"${message}"`;
+                    document.getElementById('app-title').innerText = `${recipient} 生日快乐`;
+
+                    cardEditForm.classList.add('hidden');
+                    cardDisplay.classList.remove('hidden');
+                }
+            });
+        };
+    </script>
+</body>
+</html>
